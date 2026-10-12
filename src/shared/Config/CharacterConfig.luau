@@ -41,8 +41,8 @@ local CharacterConfig = {}
 CharacterConfig.List = {
 	-- ===== COMÚN =====
 	{
-		id = "FresitaTralala",
-		name = "Fresita Tralala",
+		id = "ChicaFresa",
+		name = "Chica Fresa",
 		kind = "Fruta",
 		rarity = "Comun",
 		incomePerSecond = 1,
@@ -54,8 +54,8 @@ CharacterConfig.List = {
 		headDetail = "Pelo rojo con hojitas verdes",
 	},
 	{
-		id = "BananicoCremoso",
-		name = "Banánico Cremoso",
+		id = "SenoraPlatano",
+		name = "Señora Plátano",
 		kind = "Fruta",
 		rarity = "Comun",
 		incomePerSecond = 2,
@@ -67,8 +67,8 @@ CharacterConfig.List = {
 		headDetail = "Pelo de cáscara de plátano",
 	},
 	{
-		id = "ZanahorioGelido",
-		name = "Zanahorio Gélido",
+		id = "SenorZanahoria",
+		name = "Señor Zanahoria",
 		kind = "Verdura",
 		rarity = "Comun",
 		incomePerSecond = 3,
@@ -82,8 +82,8 @@ CharacterConfig.List = {
 
 	-- ===== RARO =====
 	{
-		id = "SandioSandini",
-		name = "Sandío Sandini",
+		id = "SenorSandia",
+		name = "Señor Sandía",
 		kind = "Fruta",
 		rarity = "Raro",
 		incomePerSecond = 8,
@@ -95,8 +95,8 @@ CharacterConfig.List = {
 		headDetail = "Cabeza de sandía con rayas verdes",
 	},
 	{
-		id = "CerecitaBombon",
-		name = "Cerecita Bombón",
+		id = "ChicaCereza",
+		name = "Chica Cereza",
 		kind = "Fruta",
 		rarity = "Raro",
 		incomePerSecond = 10,
@@ -108,8 +108,8 @@ CharacterConfig.List = {
 		headDetail = "Palito de cereza con una hoja",
 	},
 	{
-		id = "BrocolinoMusculino",
-		name = "Brocolino Musculino",
+		id = "SenorBrocoli",
+		name = "Señor Brócoli",
 		kind = "Verdura",
 		rarity = "Raro",
 		incomePerSecond = 12,
@@ -123,8 +123,8 @@ CharacterConfig.List = {
 
 	-- ===== ÉPICO =====
 	{
-		id = "MangoliaTropicana",
-		name = "Mangolia Tropicana",
+		id = "ChicaMango",
+		name = "Chica Mango",
 		kind = "Fruta",
 		rarity = "Epico",
 		incomePerSecond = 40,
@@ -136,8 +136,8 @@ CharacterConfig.List = {
 		headDetail = "Pelo degradado de naranja a rojo",
 	},
 	{
-		id = "UvaldoRacimon",
-		name = "Uvaldo Racimón",
+		id = "SenorUva",
+		name = "Señor Uva",
 		kind = "Fruta",
 		rarity = "Epico",
 		incomePerSecond = 55,
@@ -151,8 +151,8 @@ CharacterConfig.List = {
 
 	-- ===== LEGENDARIO =====
 	{
-		id = "PinardoCoronado",
-		name = "Piñardo Coronado",
+		id = "ReyPina",
+		name = "Rey Piña",
 		kind = "Fruta",
 		rarity = "Legendario",
 		incomePerSecond = 200,
@@ -164,8 +164,8 @@ CharacterConfig.List = {
 		headDetail = "Cabeza de piña con corona de hojas",
 	},
 	{
-		id = "LimonelaChispitas",
-		name = "Limonela Chispitas",
+		id = "ChicaLimon",
+		name = "Chica Limón",
 		kind = "Fruta",
 		rarity = "Legendario",
 		incomePerSecond = 260,
@@ -179,8 +179,8 @@ CharacterConfig.List = {
 
 	-- ===== MÍTICO =====
 	{
-		id = "DonPlatanoSupremo",
-		name = "Don Plátano Supremo",
+		id = "HombrePlatano",
+		name = "Hombre Plátano",
 		kind = "Fruta",
 		rarity = "Mitico",
 		incomePerSecond = 1200,
@@ -194,8 +194,8 @@ CharacterConfig.List = {
 
 	-- ===== SECRETO =====
 	{
-		id = "PitahayaGalactica",
-		name = "Pitahaya Galáctica",
+		id = "ReinaPitahaya",
+		name = "Reina Pitahaya",
 		kind = "Fruta",
 		rarity = "Secreto",
 		incomePerSecond = 10000,

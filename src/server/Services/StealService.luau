@@ -73,9 +73,11 @@ local function buildCarryModel(carry: Carry): Model
 	if humanoid then
 		humanoid:Destroy()
 	end
-	local info = model:FindFirstChild("Info")
-	if info then
-		info:Destroy()
+	for _, name in { "Info", "MutationBadge" } do
+		local gui = model:FindFirstChild(name)
+		if gui then
+			gui:Destroy()
+		end
 	end
 	pcall(function()
 		model:ScaleTo(CARRY_SCALE)

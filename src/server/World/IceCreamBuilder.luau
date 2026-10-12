@@ -110,9 +110,6 @@ function IceCreamBuilder.create(characterId: string, mutationId: string?): Model
 	model:SetAttribute("Mutation", mutationId)
 
 	local lines: { InfoBillboard.Line } = {}
-	if mutation then
-		table.insert(lines, { text = mutation.name, color = mutation.color })
-	end
 	table.insert(lines, { text = `Helado de {character.flavor}`, color = Color3.new(1, 1, 1) })
 	table.insert(lines, { text = rarity.name, color = rarity.color })
 	table.insert(lines, {
@@ -123,6 +120,10 @@ function IceCreamBuilder.create(characterId: string, mutationId: string?): Model
 
 	-- El cartel flota sobre la bola de arriba
 	InfoBillboard.create(model, model:FindFirstChild("ScoopTop"), lines, 1.5)
+	-- La mutación va en una etiqueta al costado
+	if mutation then
+		InfoBillboard.addMutationBadge(model, model:FindFirstChild("ScoopBottom"), mutation.name, mutation.multiplier, mutation.color)
+	end
 	return model
 end
 

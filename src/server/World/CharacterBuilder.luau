@@ -180,16 +180,13 @@ local function applyMutation(model: Model, mutation: Mutations.Mutation)
 	emitter.Parent = model.PrimaryPart
 end
 
--- Cartel sobre la cabeza con mutación, nombre, rareza e ingreso.
+-- Cartel sobre la cabeza con nombre, rareza e ingreso. La mutación va en una etiqueta al costado.
 -- En la banda muestra además el precio; en una base, el dinero acumulado (etiqueta "Pending").
 local function addInfo(model: Model, character: CharacterConfig.Character, mutation: Mutations.Mutation?, onConveyor: boolean)
 	local rarity = Rarities.ById[character.rarity]
 	local multiplier = if mutation then mutation.multiplier else 1
 
 	local lines: { InfoBillboard.Line } = {}
-	if mutation then
-		table.insert(lines, { text = mutation.name, color = mutation.color })
-	end
 	table.insert(lines, { text = character.name, color = Color3.new(1, 1, 1) })
 	table.insert(lines, { text = rarity.name, color = rarity.color })
 	table.insert(lines, {
@@ -206,6 +203,9 @@ local function addInfo(model: Model, character: CharacterConfig.Character, mutat
 	end
 
 	InfoBillboard.create(model, CharacterBuilder.getHead(model), lines, INFO_BOTTOM_OFFSET)
+	if mutation then
+		InfoBillboard.addMutationBadge(model, model.PrimaryPart, mutation.name, mutation.multiplier, mutation.color)
+	end
 end
 
 -- Pieza sobre la que flotan los carteles de un personaje

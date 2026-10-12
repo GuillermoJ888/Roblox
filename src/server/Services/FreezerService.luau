@@ -15,6 +15,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local CharacterConfig = require(Shared.Config.CharacterConfig)
 local GameConfig = require(Shared.Config.GameConfig)
+local Mutations = require(Shared.Config.Mutations)
 local Rarities = require(Shared.Config.Rarities)
 local Format = require(Shared.Util.Format)
 
@@ -133,6 +134,10 @@ local function showFrozen(player: Player, slotKey: string, entry: Frozen, walkFr
 		{ text = "Congelando", color = ICE_TEXT_COLOR, name = "Status" },
 		{ text = Format.time(getRemaining(item)), color = ICE_TEXT_COLOR, name = "Timer" },
 	}, 1.75)
+	local mutation = if item.mutation then Mutations.ById[item.mutation] else nil
+	if mutation then
+		InfoBillboard.addMutationBadge(model, model.PrimaryPart, mutation.name, mutation.multiplier, mutation.color)
+	end
 	model.Parent = base.info.model
 	entry.timerLabel = InfoBillboard.getLabel(model, "Timer")
 
