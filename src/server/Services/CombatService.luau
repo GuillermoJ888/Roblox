@@ -1,30 +1,36 @@
--- Vida de los jugadores y espada por defecto. El daño se calcula en el servidor:
--- el cliente solo avisa de que hizo clic con la espada equipada.
+-- Vida de los jugadores, armas y mejoras compradas. El daño se calcula en el servidor:
+-- el cliente solo avisa de que hizo clic con el arma equipada.
 --
---   CombatService.PlayerHit -> aviso (atacante, víctima) cada vez que un golpe acierta
+--   CombatService.refresh(player)  -> entrega las armas que le falten y aplica sus mejoras
+--   CombatService.PlayerHit        -> aviso (atacante, víctima) cada vez que un golpe acierta
 --
--- PLACEHOLDER: la espada son tres piezas básicas. Para usar un modelo propio, cambia buildSword
--- (necesita una pieza llamada "Handle").
+-- PLACEHOLDER: las armas son tres piezas básicas. Para usar modelos propios, cambia buildWeapon
+-- (el modelo necesita una pieza llamada "Handle").
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local GameConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config").GameConfig)
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local GameConfig = require(Shared.Config.GameConfig)
+local PassConfig = require(Shared.Config.PassConfig)
+local ToolConfig = require(Shared.Config.ToolConfig)
 
-local SWORD_NAME = "Espada"
+local DataService = require(script.Parent.DataService)
+local PassService = require(script.Parent.PassService)
+
 -- Animación de golpe con herramienta por defecto de Roblox para avatares R15
 local SLASH_ANIMATION_ID = "rbxassetid://522635514"
 
 local CombatService = {}
 
 local started = false
-local swordTemplate: Tool? = nil
+local templates: { [string]: Tool } = {}
 local lastAttack: { [Player]: number } = {}
 
 local hitEvent = Instance.new("BindableEvent")
 CombatService.PlayerHit = hitEvent.Event -- (atacante: Player, víctima: Player)
 
-local function makeSwordPart(name: string, size: Vector3, color: Color3, material: Enum.Material): Part
+local function makePiece(name: string, size: Vector3, color: Color3, material: Enum.Material): Part
 	local part = Instance.new("Part")
 	part.Name = name
 	part.Size = size
@@ -46,20 +52,25 @@ local function weld(part: Part, handle: Part, offset: CFrame, tool: Tool)
 	part.Parent = tool
 end
 
-local function buildSword(): Tool
+local function buildWeapon(definition: ToolConfig.Tool): Tool
 	local tool = Instance.new("Tool")
-	tool.Name = SWORD_NAME
-	tool.ToolTip = `Espada ({GameConfig.SwordDamage} de daño)`
+	tool.Name = definition.name
+	tool.ToolTip = `{definition.name} ({definition.damage} de daño)`
 	tool.CanBeDropped = false
 	tool.RequiresHandle = true
+	tool:SetAttribute("ToolId", definition.id)
 
-	local handle = makeSwordPart("Handle", Vector3.new(0.3, 1.2, 0.3), Color3.fromRGB(110, 70, 40), Enum.Material.Wood)
+	local handle = makePiece("Handle", Vector3.new(0.3, 1.2, 0.3), Color3.fromRGB(110, 70, 40), Enum.Material.Wood)
 	handle.Parent = tool
 
-	local guard = makeSwordPart("Guard", Vector3.new(0.3, 0.25, 1.4), Color3.fromRGB(230, 190, 60), Enum.Material.Metal)
+	local guard = makePiece("Guard", Vector3.new(0.3, 0.25, 1.4), Color3.fromRGB(230, 190, 60), Enum.Material.Metal)
 	weld(guard, handle, CFrame.new(0, 0.7, 0), tool)
 
-	local blade = makeSwordPart("Blade", Vector3.new(0.15, 3.6, 0.6), Color3.fromRGB(210, 215, 225), Enum.Material.Metal)
+	local bladeColor = definition.bladeColor or Color3.fromRGB(210, 215, 225)
+	local bladeMaterial = definition.bladeMaterial or Enum.Material.Metal
+	-- Las armas más fuertes tienen la hoja más ancha, para distinguirlas de un vistazo
+	local width = 0.6 + ((definition.damage or 20) - 20) / 40
+	local blade = makePiece("Blade", Vector3.new(0.15 + width / 6, 3.6, width), bladeColor, bladeMaterial)
 	weld(blade, handle, CFrame.new(0, 2.6, 0), tool)
 
 	return tool
@@ -78,10 +89,10 @@ local function playSlash(humanoid: Humanoid)
 end
 
 -- Golpea a los jugadores que estén cerca y delante del atacante
-local function attack(player: Player, tool: Tool)
+local function attack(player: Player, tool: Tool, definition: ToolConfig.Tool)
 	local character = player.Character
 	if not character or tool.Parent ~= character then
-		return -- la espada debe estar equipada
+		return -- el arma debe estar equipada
 	end
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	local root = character:FindFirstChild("HumanoidRootPart")
@@ -89,14 +100,16 @@ local function attack(player: Player, tool: Tool)
 		return
 	end
 
+	-- La espera es por jugador, no por arma: cambiar de arma no permite golpear más rápido
 	local now = os.clock()
-	if now - (lastAttack[player] or 0) < GameConfig.SwordCooldown then
+	if now - (lastAttack[player] or 0) < (definition.cooldown or GameConfig.SwordCooldown) then
 		return
 	end
 	lastAttack[player] = now
 
 	playSlash(humanoid)
 
+	local range = definition.range or GameConfig.SwordRange
 	for _, other in Players:GetPlayers() do
 		if other == player then
 			continue
@@ -110,7 +123,7 @@ local function attack(player: Player, tool: Tool)
 
 		local offset = otherRoot.Position - root.Position
 		local distance = offset.Magnitude
-		if distance > GameConfig.SwordRange then
+		if distance > range then
 			continue
 		end
 		-- Muy pegados cuenta siempre; si no, la víctima debe estar delante
@@ -118,8 +131,62 @@ local function attack(player: Player, tool: Tool)
 			continue
 		end
 
-		otherHumanoid:TakeDamage(GameConfig.SwordDamage)
+		otherHumanoid:TakeDamage(definition.damage or GameConfig.SwordDamage)
 		hitEvent:Fire(player, other)
+	end
+end
+
+local function ownsTool(data: DataService.PlayerData?, definition: ToolConfig.Tool): boolean
+	if definition.id == ToolConfig.DefaultWeaponId then
+		return true
+	end
+	return data ~= nil and data.tools[definition.id] == true
+end
+
+local function hasWeapon(player: Player, definition: ToolConfig.Tool): boolean
+	local backpack = player:FindFirstChildOfClass("Backpack")
+	local character = player.Character
+	return (backpack ~= nil and backpack:FindFirstChild(definition.name) ~= nil)
+		or (character ~= nil and character:FindFirstChild(definition.name) ~= nil)
+end
+
+-- Entrega las armas que el jugador tiene compradas y aún no lleva, y aplica sus mejoras.
+-- Se llama al aparecer y después de comprar algo en la tienda.
+function CombatService.refresh(player: Player)
+	local data = DataService.getData(player)
+	local backpack = player:FindFirstChildOfClass("Backpack")
+	-- Mejor valor de cada mejora de movimiento, entre lo comprado con dinero y los pases de Robux
+	local upgrades: { [string]: number } = {}
+
+	for _, definition in ToolConfig.List do
+		local owned = ownsTool(data, definition)
+		if definition.kind == "Upgrade" then
+			if definition.attribute then
+				local best = upgrades[definition.attribute] or 0
+				upgrades[definition.attribute] = if owned then math.max(best, definition.value or 0) else best
+			end
+		elseif owned and backpack and player.Character and not hasWeapon(player, definition) then
+			local template = templates[definition.id]
+			if not template then
+				template = buildWeapon(definition)
+				templates[definition.id] = template
+			end
+			local weapon = template:Clone()
+			weapon.Activated:Connect(function()
+				attack(player, weapon, definition)
+			end)
+			weapon.Parent = backpack
+		end
+	end
+
+	for _, pass in PassConfig.List do
+		if pass.attribute then
+			local best = upgrades[pass.attribute] or 0
+			upgrades[pass.attribute] = if PassService.owns(player, pass.id) then math.max(best, pass.value or 0) else best
+		end
+	end
+	for attribute, value in upgrades do
+		player:SetAttribute(attribute, if value > 0 then value else nil)
 	end
 end
 
@@ -130,19 +197,12 @@ local function onCharacterAdded(player: Player, character: Model)
 		humanoid.Health = GameConfig.PlayerMaxHealth
 	end
 
-	-- La mochila se vacía al reaparecer: se entrega una espada nueva cada vez
-	local backpack = player:FindFirstChildOfClass("Backpack")
-	if not backpack or backpack:FindFirstChild(SWORD_NAME) or character:FindFirstChild(SWORD_NAME) then
-		return
+	-- La mochila se vacía al reaparecer: se entregan las armas de nuevo cada vez.
+	-- Primero el arma gratis, sin esperar a los datos; después las compradas.
+	CombatService.refresh(player)
+	if not DataService.getData(player) and DataService.waitForData(player) and player.Character == character then
+		CombatService.refresh(player)
 	end
-	if not swordTemplate then
-		swordTemplate = buildSword()
-	end
-	local sword = (swordTemplate :: Tool):Clone()
-	sword.Activated:Connect(function()
-		attack(player, sword)
-	end)
-	sword.Parent = backpack
 end
 
 local function onPlayerAdded(player: Player)
@@ -163,6 +223,14 @@ function CombatService.start()
 	Players.PlayerAdded:Connect(onPlayerAdded)
 	Players.PlayerRemoving:Connect(function(player)
 		lastAttack[player] = nil
+	end)
+	-- Las mejoras dependen de los datos: se aplican en cuanto cargan
+	DataService.PlayerLoaded:Connect(function(player)
+		CombatService.refresh(player)
+	end)
+	-- Al comprar un pase de mejora, se aplica al momento
+	PassService.onChanged(function(player)
+		CombatService.refresh(player)
 	end)
 	for _, player in Players:GetPlayers() do
 		onPlayerAdded(player)

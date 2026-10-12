@@ -80,7 +80,7 @@ local function complete(delivery: Delivery)
 	removeDelivery(delivery)
 
 	local item = DataService.newItem(delivery.character.id, delivery.mutationId)
-	if not PlacementService.placeReserved(owner, delivery.slotKey, item) then
+	if not PlacementService.placeReserved(owner, "fruits", delivery.slotKey, item) then
 		-- No debería pasar, pero nunca se cobra sin entregar
 		if DataService.addMoney(owner, delivery.price) then
 			Notifier.send(owner, "No se pudo colocar tu personaje. Se te devolvió el dinero.", "error")
@@ -124,7 +124,8 @@ local function step(delivery: Delivery, deltaTime: number)
 	CharacterBuilder.placeAt(delivery.model, CFrame.lookAt(delivery.position, delivery.position + lookDirection))
 end
 
--- Cancela las entregas de un jugador que se va, devolviéndole el dinero si sus datos siguen cargados
+-- Cancela las entregas en curso de un jugador (al salir o al hacer rebirth),
+-- devolviéndole el dinero si sus datos siguen cargados
 local function cancelFor(player: Player)
 	for _, delivery in deliveries do
 		if delivery.owner == player then
@@ -133,6 +134,8 @@ local function cancelFor(player: Player)
 		end
 	end
 end
+
+DeliveryService.cancelFor = cancelFor
 
 function DeliveryService.get(uid: string): Delivery?
 	return deliveries[uid]

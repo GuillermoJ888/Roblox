@@ -13,10 +13,16 @@ local CharacterConfig = require(Shared.Config.CharacterConfig)
 local Mutations = require(Shared.Config.Mutations)
 local Rarities = require(Shared.Config.Rarities)
 local Format = require(Shared.Util.Format)
+local InfoBillboard = require(script.Parent.InfoBillboard)
 
 local COLLISION_GROUP = "FruitNPC"
 local SHIRT_COLOR = Color3.fromRGB(240, 240, 240)
 local PANTS_COLOR = Color3.fromRGB(60, 80, 130)
+local FROZEN_COLOR = Color3.fromRGB(170, 225, 255)
+local RAINBOW_MUTATION_ID = "Rainbow"
+local RAINBOW_TAG = "RainbowPart"
+-- Distancia de la cabeza al borde inferior del cartel
+local INFO_BOTTOM_OFFSET = 1.75
 
 local CharacterBuilder = {}
 
@@ -154,6 +160,10 @@ local function applyMutation(model: Model, mutation: Mutations.Mutation)
 		if descendant:IsA("BasePart") and descendant ~= model.PrimaryPart then
 			descendant.Color = mutation.color
 			descendant.Material = mutation.material
+			-- El cliente va cambiando el color de las piezas con esta etiqueta (RainbowController)
+			if mutation.id == RAINBOW_MUTATION_ID then
+				descendant:AddTag(RAINBOW_TAG)
+			end
 		end
 	end
 
@@ -170,59 +180,41 @@ local function applyMutation(model: Model, mutation: Mutations.Mutation)
 	emitter.Parent = model.PrimaryPart
 end
 
-local function addLine(parent: Instance, order: number, text: string, color: Color3): TextLabel
-	local label = Instance.new("TextLabel")
-	label.BackgroundTransparency = 1
-	label.Size = UDim2.fromScale(1, 0.2)
-	label.LayoutOrder = order
-	label.Text = text
-	label.TextColor3 = color
-	label.TextScaled = true
-	label.Font = Enum.Font.GothamBold
-	label.TextStrokeTransparency = 0
-	-- Los colores muy oscuros (rareza Secreto) no se leen con borde negro
-	local brightness = color.R * 0.3 + color.G * 0.6 + color.B * 0.1
-	label.TextStrokeColor3 = if brightness < 0.25 then Color3.new(1, 1, 1) else Color3.new(0, 0, 0)
-	label.Parent = parent
-	return label
-end
-
 -- Cartel sobre la cabeza con mutación, nombre, rareza e ingreso.
 -- En la banda muestra además el precio; en una base, el dinero acumulado (etiqueta "Pending").
 local function addInfo(model: Model, character: CharacterConfig.Character, mutation: Mutations.Mutation?, onConveyor: boolean)
 	local rarity = Rarities.ById[character.rarity]
 	local multiplier = if mutation then mutation.multiplier else 1
 
-	local gui = Instance.new("BillboardGui")
-	gui.Name = "Info"
-	gui.Size = UDim2.fromScale(8, 4.5)
-	gui.StudsOffset = Vector3.new(0, 4, 0)
-	gui.MaxDistance = 90
-	gui.Adornee = (model:FindFirstChild("Head") or model.PrimaryPart) :: any
-
-	local layout = Instance.new("UIListLayout")
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
-	layout.Parent = gui
-
+	local lines: { InfoBillboard.Line } = {}
 	if mutation then
-		addLine(gui, 1, mutation.name, mutation.color)
+		table.insert(lines, { text = mutation.name, color = mutation.color })
 	end
-	addLine(gui, 2, character.name, Color3.new(1, 1, 1))
-	addLine(gui, 3, rarity.name, rarity.color)
-	addLine(gui, 4, Format.money(character.incomePerSecond * multiplier) .. "/s", Color3.fromRGB(255, 225, 90))
+	table.insert(lines, { text = character.name, color = Color3.new(1, 1, 1) })
+	table.insert(lines, { text = rarity.name, color = rarity.color })
+	table.insert(lines, {
+		text = Format.money(character.incomePerSecond * multiplier) .. "/s",
+		color = Color3.fromRGB(255, 225, 90),
+	})
 	if onConveyor then
-		addLine(gui, 5, Format.money(math.floor(character.price * multiplier)), Color3.fromRGB(120, 255, 130))
+		table.insert(lines, {
+			text = Format.money(math.floor(character.price * multiplier)),
+			color = Color3.fromRGB(120, 255, 130),
+		})
 	else
-		addLine(gui, 5, Format.money(0), Color3.fromRGB(120, 255, 130)).Name = "Pending"
+		table.insert(lines, { text = Format.money(0), color = Color3.fromRGB(120, 255, 130), name = "Pending" })
 	end
 
-	gui.Parent = model
+	InfoBillboard.create(model, CharacterBuilder.getHead(model), lines, INFO_BOTTOM_OFFSET)
 end
 
--- Crea un ejemplar listo para colocar en el mundo (todavía sin Parent).
--- onConveyor: true para la banda (muestra precio), false para una base (muestra lo acumulado)
-function CharacterBuilder.create(characterId: string, mutationId: string?, onConveyor: boolean): Model
+-- Pieza sobre la que flotan los carteles de un personaje
+function CharacterBuilder.getHead(model: Model): Instance?
+	return model:FindFirstChild("Head") or model.PrimaryPart
+end
+
+-- Crea el modelo de un personaje sin cartel (todavía sin Parent)
+function CharacterBuilder.createBare(characterId: string, mutationId: string?): Model
 	local character = CharacterConfig.ById[characterId]
 	assert(character, `Personaje desconocido: {characterId}`)
 	local mutation = if mutationId then Mutations.ById[mutationId] else nil
@@ -234,8 +226,48 @@ function CharacterBuilder.create(characterId: string, mutationId: string?, onCon
 	if mutation then
 		applyMutation(model, mutation)
 	end
-	addInfo(model, character, mutation, onConveyor)
 	return model
+end
+
+-- Crea un ejemplar con su cartel, listo para colocar en el mundo (todavía sin Parent).
+-- onConveyor: true para la banda (muestra precio), false para una base (muestra lo acumulado)
+function CharacterBuilder.create(characterId: string, mutationId: string?, onConveyor: boolean): Model
+	local model = CharacterBuilder.createBare(characterId, mutationId)
+	local mutation = if mutationId then Mutations.ById[mutationId] else nil
+	addInfo(model, CharacterConfig.ById[characterId], mutation, onConveyor)
+	return model
+end
+
+-- Pone una mutación a un personaje que ya está en el mundo y rehace su cartel.
+-- Pensado para personajes sin mutación (los que alcanza un rayo en la banda).
+function CharacterBuilder.setMutation(model: Model, mutationId: string, onConveyor: boolean)
+	local character = CharacterConfig.ById[model:GetAttribute("CharacterId")]
+	local mutation = Mutations.ById[mutationId]
+	if not character or not mutation then
+		return
+	end
+	applyMutation(model, mutation)
+	model:SetAttribute("Mutation", mutationId)
+	local info = model:FindFirstChild("Info")
+	if info then
+		info:Destroy()
+	end
+	addInfo(model, character, mutation, onConveyor)
+end
+
+-- Aspecto de congelado: todo el cuerpo de hielo, con el color original apagado hacia azul
+function CharacterBuilder.applyFrozen(model: Model)
+	local bodyColors = model:FindFirstChildOfClass("BodyColors")
+	if bodyColors then
+		bodyColors:Destroy()
+	end
+	for _, descendant in model:GetDescendants() do
+		if descendant:IsA("BasePart") and descendant ~= model.PrimaryPart then
+			descendant:RemoveTag(RAINBOW_TAG) -- congelado no cambia de color
+			descendant.Color = descendant.Color:Lerp(FROZEN_COLOR, 0.6)
+			descendant.Material = Enum.Material.Ice
+		end
+	end
 end
 
 -- Animación de caminar por defecto de Roblox para avatares R15

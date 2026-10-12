@@ -48,6 +48,10 @@ export type PlayerData = {
 	freezer: { [string]: FreezerItem }, -- congelador del piso 2
 	tools: { [string]: boolean }, -- herramientas compradas
 	lastDailyBonus: number, -- os.time() del último bono diario
+	boosts: { -- ventajas compradas con Robux: segundos que le quedan a cada una (solo se gastan conectado)
+		guardSeconds: number,
+		superFreezerSeconds: number,
+	},
 }
 
 type Profile = {
@@ -186,15 +190,20 @@ local function buildData(raw: any): PlayerData
 	if type(raw) ~= "table" then
 		raw = {}
 	end
+	local rawBoosts = if type(raw.boosts) == "table" then raw.boosts else {}
 	return {
 		version = 1,
 		money = if isValidAmount(raw.money) then math.floor(raw.money) else GameConfig.StartingMoney,
 		rebirths = if isValidAmount(raw.rebirths) then math.floor(raw.rebirths) else 0,
-		fruits = sanitizeContainer(raw.fruits, GameConfig.FruitSlots),
+		fruits = sanitizeContainer(raw.fruits, GameConfig.MaxFruitSlots),
 		iceCreams = sanitizeContainer(raw.iceCreams, GameConfig.IceCreamSlots),
 		freezer = sanitizeFreezer(raw.freezer),
 		tools = sanitizeTools(raw.tools),
 		lastDailyBonus = if isValidAmount(raw.lastDailyBonus) then raw.lastDailyBonus else 0,
+		boosts = {
+			guardSeconds = if isValidAmount(rawBoosts.guardSeconds) then math.floor(rawBoosts.guardSeconds) else 0,
+			superFreezerSeconds = if isValidAmount(rawBoosts.superFreezerSeconds) then math.floor(rawBoosts.superFreezerSeconds) else 0,
+		},
 	}
 end
 
@@ -264,6 +273,10 @@ local function loadProfile(player: Player)
 	end
 
 	local profile: Profile = { data = buildData(raw), canSave = canSave }
+	-- Dinero de prueba: solo dentro de Roblox Studio, nunca en el juego publicado
+	if RunService:IsStudio() and GameConfig.StudioTestMoney > 0 then
+		profile.data.money = math.max(profile.data.money, GameConfig.StudioTestMoney)
+	end
 	profiles[player] = profile
 	updateLeaderstats(player, profile.data)
 	player:SetAttribute("DataLoaded", true)

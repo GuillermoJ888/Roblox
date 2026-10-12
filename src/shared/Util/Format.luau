@@ -25,4 +25,16 @@ function Format.money(value: number): string
 	return "$" .. Format.number(value)
 end
 
+-- Tiempo restante: 95 -> "1:35", 3725 -> "1:02:05"
+function Format.time(seconds: number): string
+	local total = math.max(math.ceil(seconds), 0)
+	local hours = math.floor(total / 3600)
+	local minutes = math.floor(total % 3600 / 60)
+	local secs = total % 60
+	if hours > 0 then
+		return string.format("%d:%02d:%02d", hours, minutes, secs)
+	end
+	return string.format("%d:%02d", minutes, secs)
+end
+
 return Format

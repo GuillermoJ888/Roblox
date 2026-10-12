@@ -18,6 +18,7 @@ export type Base = {
 	owner: Player?,
 	lockedUntil: number, -- os.clock() hasta el que la puerta sigue bloqueada
 	cooldownUntil: number, -- os.clock() a partir del cual se puede volver a bloquear
+	guardUntil: number, -- os.clock() hasta el que un guardia mantiene la puerta cerrada
 	doorGroup: string,
 	ownerGroup: string,
 }
@@ -90,14 +91,27 @@ end
 
 -- ===== Puerta =====
 
+-- true mientras un guardia de seguridad vigila la puerta
+function BaseService.isGuarded(base: Base): boolean
+	return os.clock() < base.guardUntil
+end
+
+-- true si los demás no pueden entrar: por el bloqueo de la placa roja o por el guardia
 function BaseService.isLocked(base: Base): boolean
-	return os.clock() < base.lockedUntil
+	local now = os.clock()
+	return now < base.lockedUntil or now < base.guardUntil
+end
+
+local function formatTime(seconds: number): string
+	local total = math.max(math.ceil(seconds), 0)
+	return string.format("%d:%02d", math.floor(total / 60), total % 60)
 end
 
 local function refreshBase(base: Base)
 	local info = base.info
 	local now = os.clock()
-	local locked = now < base.lockedUntil
+	local guarded = now < base.guardUntil
+	local locked = guarded or now < base.lockedUntil
 
 	info.door.CanCollide = locked
 	info.door.Color = if locked then DOOR_LOCKED_COLOR else DOOR_OPEN_COLOR
@@ -110,7 +124,10 @@ local function refreshBase(base: Base)
 	end
 
 	info.ownerLabel.Text = `Base de {base.owner.DisplayName}`
-	if locked then
+	if guarded then
+		info.statusLabel.Text = `Guardia de seguridad {formatTime(base.guardUntil - now)}`
+		info.statusLabel.TextColor3 = STATUS_LOCKED_COLOR
+	elseif locked then
 		info.statusLabel.Text = `Bloqueada {math.ceil(base.lockedUntil - now)} s`
 		info.statusLabel.TextColor3 = STATUS_LOCKED_COLOR
 	elseif now < base.cooldownUntil then
@@ -184,11 +201,21 @@ local function releaseBase(player: Player)
 	base.owner = nil
 	base.lockedUntil = 0
 	base.cooldownUntil = 0
+	base.guardUntil = 0
 	refreshBase(base)
 	releasedEvent:Fire(player, base.index)
 end
 
 -- ===== API pública =====
+
+-- Pone un guardia en la base del jugador durante esos segundos (0 lo retira)
+function BaseService.setGuard(player: Player, seconds: number)
+	local base = baseByPlayer[player]
+	if base then
+		base.guardUntil = if seconds > 0 then os.clock() + seconds else 0
+		refreshBase(base)
+	end
+end
 
 function BaseService.getBase(player: Player): Base?
 	return baseByPlayer[player]
@@ -215,6 +242,7 @@ function BaseService.start(map: MapBuilder.MapInfo)
 			owner = nil,
 			lockedUntil = 0,
 			cooldownUntil = 0,
+			guardUntil = 0,
 			doorGroup = `BaseDoor{info.index}`,
 			ownerGroup = `BaseOwner{info.index}`,
 		}

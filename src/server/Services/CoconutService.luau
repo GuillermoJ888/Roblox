@@ -1,5 +1,7 @@
--- NPC coco heladero, dueño de la heladería. Por ahora explica de qué trata el juego;
--- la venta de helados y el bono diario se añaden más adelante.
+-- NPC coco heladero, dueño de la heladería. Al hablarle se abre su menú (ShopService).
+--
+--   CoconutService.onInteract(función)  -> se llama con el jugador que le habla
+--   CoconutService.isNear(player)       -> true si el jugador está lo bastante cerca para usar el menú
 --
 -- PLACEHOLDER: avatar básico marrón con la cabeza grande. Para usar un modelo propio,
 -- cambia buildNpc para que clone tu modelo (necesita PrimaryPart y una pieza "Head").
@@ -13,21 +15,12 @@ local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
 local COCONUT_COLOR = Color3.fromRGB(120, 75, 45)
 local SHIRT_COLOR = Color3.fromRGB(95, 125, 85)
 local PANTS_COLOR = Color3.fromRGB(60, 80, 130)
-local LINE_DURATION = 4.5 -- segundos que se muestra cada frase
-
--- Frases de la explicación. {name} se cambia por el nombre del jugador.
-local DIALOGUE = {
-	"¡Hola, {name}! Soy {npc}, el dueño de esta heladería.",
-	"De la cueva salen frutas por la banda. ¡Compra las que más te gusten!",
-	"Ponlas en tu base y te darán dinero cada segundo.",
-	"Sube una fruta al congelador del piso 2 y se convertirá en helado. ¡Vale mucho más!",
-	"Tráeme tus helados y te los compro a buen precio.",
-	"Pero cuidado: otros jugadores pueden robarte. ¡Bloquea tu puerta con la placa roja!",
-}
 
 local CoconutService = {}
 
 local started = false
+local npcPosition: Vector3? = nil
+local interactCallbacks: { (Player) -> () } = {}
 
 local function buildNpc(): Model
 	local description = Instance.new("HumanoidDescription")
@@ -74,37 +67,19 @@ local function buildNpc(): Model
 	return model
 end
 
-local function buildSpeechBubble(npc: Model): (BillboardGui, TextLabel)
-	local gui = Instance.new("BillboardGui")
-	gui.Name = "Speech"
-	gui.Size = UDim2.fromScale(18, 5)
-	gui.StudsOffset = Vector3.new(0, 5.5, 0)
-	gui.MaxDistance = 80
-	gui.Enabled = false
-	gui.Adornee = (npc:FindFirstChild("Head") or npc.PrimaryPart) :: any
+-- Registra una función que se llama cuando un jugador le habla al coco
+function CoconutService.onInteract(callback: (Player) -> ())
+	table.insert(interactCallbacks, callback)
+end
 
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundColor3 = Color3.new(1, 1, 1)
-	label.TextColor3 = Color3.fromRGB(40, 30, 20)
-	label.TextScaled = true
-	label.TextWrapped = true
-	label.Font = Enum.Font.FredokaOne
-	label.Parent = gui
-
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0.2, 0)
-	corner.Parent = label
-
-	local padding = Instance.new("UIPadding")
-	padding.PaddingLeft = UDim.new(0.04, 0)
-	padding.PaddingRight = UDim.new(0.04, 0)
-	padding.PaddingTop = UDim.new(0.08, 0)
-	padding.PaddingBottom = UDim.new(0.08, 0)
-	padding.Parent = label
-
-	gui.Parent = npc
-	return gui, label
+-- El menú solo funciona cerca del coco: así no se puede vender desde cualquier parte del mapa
+function CoconutService.isNear(player: Player): boolean
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not npcPosition or not root or not root:IsA("BasePart") then
+		return false
+	end
+	return (root.Position - npcPosition).Magnitude <= GameConfig.ShopDistance
 end
 
 function CoconutService.start(map: MapBuilder.MapInfo)
@@ -118,8 +93,7 @@ function CoconutService.start(map: MapBuilder.MapInfo)
 	local footOffset = npc:GetAttribute("FootOffset") or 0
 	npc:PivotTo(map.coconutSpot * CFrame.new(0, footOffset, 0))
 	npc.Parent = map.folder
-
-	local bubble, label = buildSpeechBubble(npc)
+	npcPosition = map.coconutSpot.Position
 
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.ActionText = "Hablar"
@@ -130,25 +104,10 @@ function CoconutService.start(map: MapBuilder.MapInfo)
 	prompt.RequiresLineOfSight = false
 	prompt.Parent = npc.PrimaryPart
 
-	local talking = false
 	prompt.Triggered:Connect(function(player)
-		if talking then
-			return
+		for _, callback in interactCallbacks do
+			task.spawn(callback, player)
 		end
-		talking = true
-		prompt.Enabled = false
-
-		bubble.Enabled = true
-		for _, line in DIALOGUE do
-			line = string.gsub(line, "{name}", player.DisplayName)
-			line = string.gsub(line, "{npc}", GameConfig.CoconutNpcName)
-			label.Text = line
-			task.wait(LINE_DURATION)
-		end
-		bubble.Enabled = false
-
-		prompt.Enabled = true
-		talking = false
 	end)
 end
 

@@ -5,6 +5,7 @@ local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local StarterPlayer = game:GetService("StarterPlayer")
 
 local GameConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config").GameConfig)
 local HudController = require(script.Parent.HudController)
@@ -46,21 +47,41 @@ local function update(deltaTime: number)
 			exhausted = true
 		end
 	elseif os.clock() - lastSprintTime >= GameConfig.StaminaRegenDelay then
-		stamina = math.min(stamina + GameConfig.StaminaRegen * deltaTime, GameConfig.StaminaMax)
+		-- Mejora de la tienda: el servidor pone este atributo a quien la compró
+		local regenMultiplier = player:GetAttribute("StaminaRegenMultiplier") or 1
+		stamina = math.min(stamina + GameConfig.StaminaRegen * regenMultiplier * deltaTime, GameConfig.StaminaMax)
 		if exhausted and stamina >= GameConfig.StaminaMinToSprint then
 			exhausted = false
 		end
 	end
 
-	local targetSpeed = GameConfig.WalkSpeed
+	-- Mejora de la tienda: velocidad extra al caminar y al correr (no al cargar algo robado)
+	local speedBonus = player:GetAttribute("SpeedBonus") or 0
+	local targetSpeed = GameConfig.WalkSpeed + speedBonus
 	if carrying then
 		targetSpeed = GameConfig.CarryWalkSpeed
 	elseif sprinting then
-		targetSpeed = GameConfig.SprintSpeed
+		targetSpeed = GameConfig.SprintSpeed + speedBonus
 	end
 	-- Velocidad 0 significa que otro sistema lo inmovilizó: no se toca
 	if humanoid.WalkSpeed ~= 0 and humanoid.WalkSpeed ~= targetSpeed then
 		humanoid.WalkSpeed = targetSpeed
+	end
+
+	-- Resorte (tienda de Cocardo) o Súper resorte (pase de Robux): salto más alto.
+	-- No cuenta mientras se carga algo robado.
+	local jumpMultiplier = if carrying then 1 else (player:GetAttribute("JumpMultiplier") or 1)
+	if humanoid.UseJumpPower then
+		-- La altura crece con el cuadrado de la potencia
+		local targetPower = StarterPlayer.CharacterJumpPower * math.sqrt(jumpMultiplier)
+		if math.abs(humanoid.JumpPower - targetPower) > 0.01 then
+			humanoid.JumpPower = targetPower
+		end
+	else
+		local targetHeight = StarterPlayer.CharacterJumpHeight * jumpMultiplier
+		if math.abs(humanoid.JumpHeight - targetHeight) > 0.01 then
+			humanoid.JumpHeight = targetHeight
+		end
 	end
 
 	HudController.setStamina(stamina / GameConfig.StaminaMax, exhausted)

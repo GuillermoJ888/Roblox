@@ -27,7 +27,7 @@ export type ConveyorItem = {
 
 local SpawnerService = {}
 
--- true mientras dura el evento "Lluvia de mutaciones"
+-- true mientras dura una tormenta de mutaciones
 SpawnerService.mutationRainActive = false
 
 local items: { [string]: ConveyorItem } = {}
@@ -42,6 +42,10 @@ local beltLength: number
 local spawnedEvent = Instance.new("BindableEvent")
 -- Solo se envía el uid (los BindableEvent copian las tablas): pide el personaje con getItem(uid)
 SpawnerService.ItemSpawned = spawnedEvent.Event -- (uid)
+
+local changedEvent = Instance.new("BindableEvent")
+-- Se dispara cuando cambia la mutación (y el precio) de un personaje de la banda
+SpawnerService.ItemChanged = changedEvent.Event -- (uid)
 
 local function placeItem(item: ConveyorItem)
 	local position = startPosition + direction * item.distance
@@ -72,6 +76,25 @@ end
 
 function SpawnerService.getItem(uid: string): ConveyorItem?
 	return items[uid]
+end
+
+-- Todos los personajes que van ahora mismo por la banda, por uid. Solo para leer.
+function SpawnerService.getItems(): { [string]: ConveyorItem }
+	return items
+end
+
+-- Pone una mutación a un personaje que va por la banda: cambian su aspecto y su precio
+function SpawnerService.setMutation(uid: string, mutation: Mutations.Mutation): boolean
+	local item = items[uid]
+	if not item then
+		return false
+	end
+	item.mutation = mutation
+	item.price = math.floor(item.character.price * mutation.multiplier)
+	CharacterBuilder.setMutation(item.model, mutation.id, true)
+	item.model:SetAttribute("Price", item.price)
+	changedEvent:Fire(uid)
+	return true
 end
 
 -- Saca un personaje de la banda. Quien lo recibe decide qué hacer con el modelo.

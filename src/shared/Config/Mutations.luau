@@ -18,9 +18,10 @@ export type Mutation = {
 local Mutations = {}
 
 -- Probabilidad de que un personaje salga con mutación (0 a 1)
-Mutations.BaseChance = 0.15
--- Probabilidad durante el evento "Lluvia de mutaciones"
-Mutations.EventChance = 0.5
+Mutations.BaseChance = 0.05
+-- Probabilidad de los personajes que SALEN de la cueva durante una tormenta de mutaciones.
+-- (Además, los rayos mutan a los que ya van por la banda.)
+Mutations.EventChance = 0.3
 
 Mutations.List = {
 	{
@@ -86,7 +87,7 @@ for _, mutation in Mutations.List do
 end
 
 -- Decide si sale mutación y cuál. Devuelve nil si el personaje sale normal.
--- eventActive: true mientras dura la "Lluvia de mutaciones"
+-- eventActive: true mientras dura una tormenta de mutaciones
 function Mutations.roll(rng: Random?, eventActive: boolean?): Mutation?
 	local generator = rng or Random.new()
 	local chance = if eventActive then Mutations.EventChance else Mutations.BaseChance
@@ -96,6 +97,13 @@ function Mutations.roll(rng: Random?, eventActive: boolean?): Mutation?
 	return WeightedRandom.pick(Mutations.List, function(mutation)
 		return mutation.weight
 	end, generator)
+end
+
+-- Elige una mutación al azar según los pesos (siempre devuelve una)
+function Mutations.pickRandom(rng: Random?): Mutation
+	return WeightedRandom.pick(Mutations.List, function(mutation)
+		return mutation.weight
+	end, rng) :: Mutation
 end
 
 -- Multiplicador de una mutación por id (1 si no tiene mutación)

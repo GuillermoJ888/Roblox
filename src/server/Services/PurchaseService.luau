@@ -65,12 +65,12 @@ local function tryPurchase(player: Player, uid: string)
 
 	local slotKey = PlacementService.reserveSlot(player)
 	if not slotKey then
-		Notifier.send(player, "Tu base está llena.", "error")
+		Notifier.send(player, "Tu base está llena.", "error", "Error")
 		return
 	end
 	if not DataService.trySpend(player, price) then
 		PlacementService.releaseReservation(player, slotKey)
-		Notifier.send(player, `Te faltan {Format.money(price - DataService.getMoney(player))}.`, "error")
+		Notifier.send(player, `Te faltan {Format.money(price - DataService.getMoney(player))}.`, "error", "Error")
 		return
 	end
 
@@ -78,7 +78,7 @@ local function tryPurchase(player: Player, uid: string)
 	if beltItem then
 		SpawnerService.take(uid)
 		if DeliveryService.begin(beltItem, player, slotKey) then
-			Notifier.send(player, `¡Compraste a {name}! Va caminando a tu base.`, "success")
+			Notifier.send(player, `¡Compraste a {name}! Va caminando a tu base.`, "success", "Purchase")
 		else
 			-- No debería pasar (tener ranura implica tener base), pero nunca se cobra sin entregar
 			beltItem.model:Destroy()
@@ -102,7 +102,7 @@ local function tryPurchase(player: Player, uid: string)
 	else
 		Notifier.send(previousOwner, `¡{player.DisplayName} te quitó a {name}!`, "error")
 	end
-	Notifier.send(player, `¡Le quitaste {name} a {previousOwner.DisplayName}! Va caminando a tu base.`, "success")
+	Notifier.send(player, `¡Le quitaste {name} a {previousOwner.DisplayName}! Va caminando a tu base.`, "success", "Purchase")
 end
 
 function PurchaseService.start()
@@ -130,6 +130,16 @@ function PurchaseService.start()
 		prompt.Triggered:Connect(function(player)
 			tryPurchase(player, uid)
 		end)
+	end)
+
+	-- Si un rayo le pone una mutación mientras va por la banda, cambia su precio
+	SpawnerService.ItemChanged:Connect(function(uid)
+		local item = SpawnerService.getItem(uid)
+		local part = item and item.model.PrimaryPart
+		local prompt = part and part:FindFirstChildOfClass("ProximityPrompt")
+		if item and prompt then
+			prompt.ObjectText = `{item.character.name} - {Format.money(item.price)}`
+		end
 	end)
 end
 

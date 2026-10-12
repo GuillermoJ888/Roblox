@@ -7,7 +7,20 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local NAMES = {
-	"Notify", -- servidor -> cliente: (texto, tipo) con tipo "info" | "success" | "error"
+	-- servidor -> cliente
+	"Notify", -- (texto, tipo, sonido?) aviso corto. tipo: "info" | "success" | "error"
+	"Announce", -- (texto, color, sonido?) aviso grande para todos
+	"Inventory", -- (resumen) lo que tiene el jugador: frutas, helados, congelador, herramientas
+	"OpenShop", -- () abre el menú de Cocardo
+	"OpenStorm", -- () abre el menú de la máquina de tormentas
+	"TradeUpdate", -- (tipo, datos) estado del intercambio
+
+	-- cliente -> servidor (el servidor valida todo lo que llega)
+	"ShopAction", -- (acción, ...) vender, bono diario, comprar herramienta, rebirth
+	"TradeAction", -- (acción, ...) pedir, aceptar, ofrecer, confirmar, cancelar
+	"StormAction", -- ("Donate", tipo, ranura) echar una fruta o un helado a la máquina de tormentas
+	"PassAction", -- ("Buy", idDelPase) pedir la ventana de compra de un pase de Robux
+	"ProductAction", -- ("Buy", idDelProducto) pedir la ventana de compra de un producto de Robux
 }
 
 local FOLDER_NAME = "Remotes"
